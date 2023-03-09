@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Sum
 
 # Create your models here.
 
@@ -93,8 +94,7 @@ class Order(models.Model):
     books = models.ManyToManyField(Book)
 
     def __str__(self):
-          return str(self.ordernumber)
+        return str(self.ordernumber)
 
-
-
-
+    #def getsum(self):
+        #return Order.objects.all().aggregate(Sum('ordercost'))

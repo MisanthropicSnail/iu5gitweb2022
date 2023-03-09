@@ -1,8 +1,9 @@
-from django.db.models import Count
+from django.db.models import Count, Sum, Max, Min, Avg
 from django.db.models import Q
-from django.db.models import Avg
+from django.http import JsonResponse
 from django.shortcuts import render
 import json
+from django.http import HttpResponse
 
 # Create your views here.
 
@@ -93,32 +94,55 @@ class BookViewSet(viewsets.ModelViewSet):
 
 
 class OrderViewSet(viewsets.ModelViewSet):
-    #queryset = Order.objects.all().order_by('orderdate')
+    # queryset = Order.objects.all().order_by('orderdate')
     serializer_class = OrderSerializer
 
     # @action(methods=['get'], detail=False)
     def get_queryset(self):
-        request = self.request.query_params.get('orderdate')
+        request = self.request.query_params.get('orderdate')  # Запрос с одним параметром
         if not request:
-            between_beg = self.request.query_params.get('between_beg')
+            between_beg = self.request.query_params.get('between_beg')  # Тут запрашивают параметры фильтра по времени
             between_end = self.request.query_params.get('between_end')
             if between_beg is None and between_end is None:
-                return Order.objects.all().order_by('orderdate')[:4]
+                doiwantsum = self.request.query_params.get('sumflag')  # запросим наличие флага суммы
+                if doiwantsum:
+
+                    return Order.objects.all().aggregate(Sum('ordercost'))
+                    #  Order.objects.all().annotate(Min('ordercost')) # Возвращает кверисет с [] со всеми записями
+
+                    #  Order.objects.all().aggregate(Min('ordercost'))  #  AttributeError: Got AttributeError when attempting to get a value for field `ordernumber` on serializer `OrderSerializer`.
+                                                                        #  The serializer field might be named incorrectly and not match any attribute or key on the `str` instance.
+                                                                        #  Original exception text was: 'str' object has no attribute 'ordernumber'.
+
+                   #  Order.objects.all().order_by('ordercost')        #  Возращает кверисет [] с всеми записями в порядке
+                return Order.objects.all().order_by('orderdate')[:4]  # Выводит список если нет параметров
             else:
                 between_beg = timezone.make_aware(datetime.strptime(between_beg, '%Y-%m-%d'), timezone.get_default_timezone())
                 between_end = timezone.make_aware(datetime.strptime(between_end, '%Y-%m-%d'), timezone.get_default_timezone())
-                answer = Order.objects.filter(orderdate__lte=between_end, orderdate__gte=between_beg)#просто фильтрует по дате
-                answer = Order.objects.alias(Count('ordercost')).filter(orderdate__lte=between_end, orderdate__gte=between_beg)#не работает
-                return answer
-                    #.filter(orderdate__lte=between_end, orderdate__gte=between_beg)
-                    #Book.objects.aggregate(Avg('price'))
-                    #bullshit#Order.objects.aggregate(Count('orderdate')).filter(orderdate__lte=between_end, orderdate__gte=between_beg)
-                    #WORKS#Order.objects.filter(orderdate__lte=between_end, orderdate__gte=between_beg)
-                #blogs = Blog.objects.alias(entries=Count('entry')).filter(entries__gt=5)
-                #blogs = Blog.objects.aggregate(Count('orders')).filter(entries__gt=5)
-                #TopCountries.objects.aggregate(Count('top_countries'))
-
+                return Order.objects.filter(orderdate__lte=between_end, orderdate__gte=between_beg)
         else:
             orderdate = timezone.make_aware(datetime.strptime(request, '%Y-%m-%d'), timezone.get_default_timezone())
             return Order.objects.filter(orderdate__day=orderdate.day, orderdate__month=orderdate.month, orderdate__year=orderdate.year)
+
+    def get_sum(self):
+        doiwantsum = self.request.query_params.get('sumflag')  # запросим наличие флага суммы
+        if doiwantsum:
+            return Order.objects.all().aggregate(Sum('ordercost'))
+
+
+            # elif sumflag is not None:
+            # return Order.objects.all().aggregate(Sum('ordercost'))
+            # Order.objects.all().aggregate(Min('ordercost'))
+            # Order.objects.all().aggregate(Max('ordercost'))
+            # Order.objects.all().aggregate(Avg('ordercost'))
+            # between_beg is not None and between_end is None:
+            # return Order.objects.alias(entries=Count('ordercost'))
+
+            #  Order.objects.values(analias2='ordernumber').annotate(analias=Count('pk')).order_by()
+            #  Order.objects.order_by('ordercost')[:1]
+            #  pubs = Order.objects.annotate(num_books=Count('book'))
+            #  Order.objects.all().aggregate(Min('ordercost'))
+            #  Order.objects.all().annotate(Min('ordercost'))
+            #  Order.objects.all().order_by('ordercost')
+            # return Order.objects.all().aggregate(total_price=Sum('ordercost'))  # должно выводить сумму?
 
